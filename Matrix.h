@@ -191,13 +191,14 @@ public:
     }
 
     template<typename R>
-    vector<pair<R,vector<Coord<d>>>> groupValues(callable<R,T> f)
+    vector<pair<R,vector<vector<Coord<d>>>>> groupValues(callable<R,T> f)
+    //-- vector of pairs: each pair contains the group type and a vector of vectors of coords
     {
         auto unmapped_soil = vector<Coord<d>>();
         vector<size_t> c1(d, 0);
         Coord<d> currCoord(c1);
 
-        auto all_groups = vector<pair<R, vector<Coord<d>>>>();
+        auto all_groups = vector<pair<R, vector<vector<Coord<d>>>>>();
         //auto q = f(getElem(currCoord));
 
         while (c1[d-1] < n_[d-1])
@@ -218,7 +219,7 @@ public:
         {
             vector<Coord<d>> new_grp;
             auto begin_crd = unmapped_soil[0];
-            //revealSurroundings(new_grp, begin_crd, f);
+            revealSurroundings(new_grp, begin_crd, f);
 
             for (const auto& crd : new_grp)
             {
@@ -228,6 +229,19 @@ public:
             //-- add group:
             bool has_group = false;
             auto it = all_groups.begin();
+            for (; it != all_groups.end(); ++it)
+            {
+                if (*it.first == f(begin_crd))
+                {
+                    it.second.append(new_grp);
+                }
+                has_group = true;
+                break;
+            }
+            if (!has_group)
+            {
+                all_groups.append(make_pair(f(begin_crd), vector<vector<Coord<d>>>(new_grp)));
+            }
         }
         return all_groups;
     }
