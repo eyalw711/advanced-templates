@@ -52,25 +52,12 @@ struct Coord
 
 using Crd2 = Coord<2>;
 
-template <typename Ret, typename Inp>
-struct callable
-{
-    function<Ret(Inp)> func;
-
-    callable(function<Ret(Inp)> f) : func(f){}
-    Ret operator()(Inp p)
-    {
-        return func(p);
-    }
-};
-
 
 template <int d, typename T>
 class Matrix 
 {
     size_t n_[d] = { 0 };
     vector<T> data_;
-    
     //------------------------------- Depth_detector --------------------------------//
     template <int D, typename U> //start with D == d
     struct Depth_detector
@@ -152,6 +139,7 @@ class Matrix
     typedef typename Initializer_list<d, T>::list_type initializer_type;
 
 public:
+
     // initializer list constructor
     Matrix(initializer_type l) : data_(vector<T>())
     {
@@ -189,16 +177,16 @@ public:
         }
         return data_[offset];
     }
-
-    template<typename R>
-    vector<pair<R,vector<vector<Coord<d>>>>> groupValues(callable<R,T> f)
+    
+    template<typename F>
+    auto groupValues(F f) -> decltype(vector<pair<decltype(typename  result_of<F(T)>::type), vector<vector<Coord<d>>>>>())
     //-- vector of pairs: each pair contains the group type and a vector of vectors of coords
     {
         auto unmapped_soil = vector<Coord<d>>();
         vector<size_t> c1(d, 0);
         Coord<d> currCoord(c1);
 
-        auto all_groups = vector<pair<R, vector<vector<Coord<d>>>>>();
+        auto all_groups = vector<pair<decltype(typename  std::result_of<F(T)>::type), vector<vector<Coord<d>>>>>();
         //auto q = f(getElem(currCoord));
 
         while (c1[d-1] < n_[d-1])
@@ -215,80 +203,80 @@ public:
             }
         }
 
-        while (unmapped_soil.size() > 0)
-        {
-            vector<Coord<d>> new_grp;
-            auto begin_crd = unmapped_soil[0];
-            revealSurroundings(new_grp, begin_crd, f);
-
-            for (const auto& crd : new_grp)
-            {
-                //-- todo: skeptic
-                unmapped_soil.erase(std::remove(unmapped_soil.begin(), unmapped_soil.end(), crd), unmapped_soil.end());
-            }
-            //-- add group:
-            bool has_group = false;
-            auto it = all_groups.begin();
-            for (; it != all_groups.end(); ++it)
-            {
-                if (*it.first == f(begin_crd))
-                {
-                    it.second.append(new_grp);
-                }
-                has_group = true;
-                break;
-            }
-            if (!has_group)
-            {
-                all_groups.append(make_pair(f(begin_crd), vector<vector<Coord<d>>>(new_grp)));
-            }
-        }
+        //while (unmapped_soil.size() > 0)
+        //{
+        //    vector<Coord<d>> new_grp;
+        //    auto begin_crd = unmapped_soil[0];
+        //    revealSurroundings(new_grp, begin_crd, f);
+        //
+        //    for (const auto& crd : new_grp)
+        //    {
+        //        //-- todo: skeptic
+        //        unmapped_soil.erase(std::remove(unmapped_soil.begin(), unmapped_soil.end(), crd), unmapped_soil.end());
+        //    }
+        //    //-- add group:
+        //    bool has_group = false;
+        //    iterator<> it = all_groups.begin();
+        //    for (; it != all_groups.end(); ++it)
+        //    {
+        //        if (*it.first == f(begin_crd))
+        //        {
+        //            *it.second.append(new_grp);
+        //        }
+        //        has_group = true;
+        //        break;
+        //    }
+        //    if (!has_group)
+        //    {
+        //        all_groups.append(make_pair(f(begin_crd), vector<vector<Coord<d>>>(new_grp)));
+        //    }
+        //}
         return all_groups;
     }
     
-    template <typename R>
-    void revealSurroundings(vector<Coord<d>>& grp_crds_vec, Coord<d>& crd, callable<R, T> f)
-    {
-        grp_crds_vec.push_back(crd);
-
-        R grp_type = f(getElem(crd));
-        
-        for (int dim = 0; dim < d; ++dim)
-        {
-            if (crd.ax[dim] == 0) // only raise
-            {
-                crd.ax[dim] += 1;
-                if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
-                {
-                    revealSurroundings(grp_crds_vec, crd, f);
-                }
-                crd.ax[dim] -= 1; //-- undo changes
-            }
-            else if (crd.ax[dim] == n_[dim] - 1) // only lower
-            {
-                crd.ax[dim] -= 1;
-                if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
-                {
-                    revealSurroundings(grp_crds_vec, crd, f);
-                }
-                crd.ax[dim] += 1; //-- undo changes
-            }
-            else //both
-            {
-                crd.ax[dim] += 1;
-                if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
-                {
-                    revealSurroundings(grp_crds_vec, crd, f);
-                }
-                crd.ax[dim] -= 2;
-                if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
-                {
-                    revealSurroundings(grp_crds_vec, crd, f);
-                }
-                crd.ax[dim] += 1; //-- undo changes
-            }
-        }
-    }
+    //template <typename R>
+    //void revealSurroundings(vector<Coord<d>>& grp_crds_vec, Coord<d>& crd, Element_Mapper<R> f)
+    //{
+    //    grp_crds_vec.push_back(crd);
+    //
+    //    R grp_type = f(getElem(crd));
+    //    
+    //    for (int dim = 0; dim < d; ++dim)
+    //    {
+    //        if (crd.ax[dim] == 0) // only raise
+    //        {
+    //            crd.ax[dim] += 1;
+    //            if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
+    //            {
+    //                revealSurroundings(grp_crds_vec, crd, f);
+    //            }
+    //            crd.ax[dim] -= 1; //-- undo changes
+    //        }
+    //        else if (crd.ax[dim] == n_[dim] - 1) // only lower
+    //        {
+    //            crd.ax[dim] -= 1;
+    //            if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
+    //            {
+    //                revealSurroundings(grp_crds_vec, crd, f);
+    //            }
+    //            crd.ax[dim] += 1; //-- undo changes
+    //        }
+    //        else //both
+    //        {
+    //            crd.ax[dim] += 1;
+    //            if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
+    //            {
+    //                revealSurroundings(grp_crds_vec, crd, f);
+    //            }
+    //            crd.ax[dim] -= 2;
+    //            if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
+    //            {
+    //                revealSurroundings(grp_crds_vec, crd, f);
+    //            }
+    //            crd.ax[dim] += 1; //-- undo changes
+    //        }
+    //    }
+    //}
 
 
 //void Board::revealSurroundings(Coordinate c, char ship_char, Board &board, vector<Coordinate> &coords)

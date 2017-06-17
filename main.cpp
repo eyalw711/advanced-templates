@@ -24,8 +24,9 @@ void print(const Groups& all_groups) {
 
 int main() {
     
-    Matrix2d<char> m = { { 'a'},{ 'B', 'a', 'B' },{ 'B', 'a', 'B', 'A', 'e','y','a' } };
-    auto all_groups = m.groupValues(callable<string, char>([](auto i) -> string {return islower(static_cast<int>(i)) ? "L" : "U"; }));
+    Matrix2d<int> m = { { 1},{ 4, 8, 7 },{ 7, 1, 1, 1, 9, 9, 0 } };
+    auto all_groups = m.groupValues([](auto i) {return i % 2 == 0; });
+    //auto all_groups = m.groupValues([](auto i){return islower(static_cast<int>(i)) ? "L" : "U"; });
     //print(all_groups);
     return 0;
 }
