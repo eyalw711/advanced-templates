@@ -3,6 +3,7 @@
 #include <functional>
 #include <initializer_list>
 #include <algorithm>
+#include <memory>
 
 using namespace std;
 
