@@ -27,7 +27,7 @@ struct Coord
 
 	Coord(vector<size_t>& crds)
 	{
-		int minLen = min(d, crds.size());
+		size_t minLen = min(d, crds.size());
 		for (int i = 0; i < minLen; ++i)
 		{
 			ax[i] = crds[i];
@@ -148,7 +148,7 @@ public:
 
 
 
-	int coordToArrayIndex(Coord<DIMENSIONS> crd) const
+	size_t coordToArrayIndex(Coord<DIMENSIONS> crd) const
 	{
 		for (int i = 0; i < DIMENSIONS; i++)
 		{
@@ -157,10 +157,10 @@ public:
 				throw exception("index out of range");
 			}
 		}
-		int offset = 0;
+		size_t offset = 0;
 		for (int layer = 0; layer < DIMENSIONS; layer++) //-- layer depth
 		{
-			int layer_prog = crd.ax[layer];
+			size_t layer_prog = crd.ax[layer];
 			for (int j = layer + 1; j < DIMENSIONS; j++)
 			{
 				layer_prog *= _dimensions[j];
@@ -219,13 +219,13 @@ public:
 		auto coordinates_mapped = vector<pair<Coord<DIMENSIONS>,bool>>();
 		auto coordinates_components = vector<vector<size_t>>(_size);
 		// initialize coordinates_components
-		int num_of_reaccurance = 1;
+		size_t num_of_reaccurance = 1;
 		size_t sub_matrix_size = _size;
 		for (const size_t& dim : _dimensions)
 		{
 			sub_matrix_size /= dim;
 			int index = 0;
-			for (int i = 1; i <= num_of_reaccurance; i++)
+			for (size_t i = 1; i <= num_of_reaccurance; i++)
 			{
 				for (size_t j = 0; j < dim; j++)
 				{
