@@ -1,6 +1,5 @@
 #include <iostream>
-#include "MatrixNew.h"
-#include <map>
+#include "Matrix.h"
 #include <locale>
 
 using namespace std;
@@ -27,14 +26,15 @@ int main() {
     
 	Matrix2d<char> m = { { 'a', 'A', 'a' },{ 'B', 'a', 'B' },{ 'B', 'a', 'B' } };
 	auto all_groups = m.groupValues([](auto i) {return islower(i) ? "L" : "U"; });
-	//Matrix3d<int> m = { {{0,1},{0,1}},{ { 0,1 },{ 0,1 } } };
-	//Matrix2d<int> m = { { 1},{ 4, 8, 7 },{ 7, 1, 1, 1, 9, 9, 0 } };
-    //auto all_groups = m.groupValues([](auto i) {return i % 2 == 0; });
-    //auto all_groups = m.groupValues([](auto i){return islower(static_cast<int>(i)) ? "L" : "U"; });
     print(all_groups);
 	Matrix3d<int> m2 = { { { 1, 2, 3 },{ 1, 2 },{ 1, 2 } },{ { 1, 2 },{ 1, 2, 3, 4 } } };
 	auto groups = m2.groupValues([](auto i) {return i % 3 ? "!x3" : "x3"; });
 	print(groups);
+
+	Matrix4d<int> m3 = { { {{ 1, 1, 1 },{ 1, 1 },{ 1, 1} },{ { 1, 1 },{ 1,1, 1, 1 } } },
+	{ { { 1, 1, 1 },{ 1, 1 },{ 1, 1 } },{ { 1, 1 },{ 1,1, 1, 1 } } } };
+	auto groups4 = m3.groupValues([](auto i) {return i % 3 ? "!x3" : "x3"; });
+	print(groups4);
 
     return 0;
 }

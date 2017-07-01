@@ -4,8 +4,13 @@
 #include <initializer_list>
 #include <algorithm>
 #include <memory>
+#include <map>
+#include <iso646.h>
 
 using namespace std;
+
+
+
 
 #ifndef max
 #define max(a,b) (((a) > (b)) ? (a) : (b))
@@ -18,290 +23,264 @@ using namespace std;
 template <int d>
 struct Coord
 {
-    size_t ax[d];
+	vector<size_t> ax = vector<size_t>(d,0);
 
-    Coord(vector<size_t>& crds)
-    {
-        int minLen = min(d, crds.size());
-        for (int i = 0; i < minLen; ++i)
-        {
-            ax[i] = crds[i];
-        }
-    }
+	Coord(vector<size_t>& crds)
+	{
+		int minLen = min(d, crds.size());
+		for (int i = 0; i < minLen; ++i)
+		{
+			ax[i] = crds[i];
+		}
+	}
 
-    bool operator==(Coord<d> other)
-    {
-        int diff = 0;
-        for (int i = 0; i < d; i++)
-        {
-            diff += abs(static_cast<int>(ax[i]) - static_cast<int>(other.ax[i]));
-        }
-        return diff == 0;
-    }
 
-    bool adjacents(Coord<d> c1, Coord<d> c2)
-    {
-        //-- coords are adjacents only if they their difference is 1
-        int diff = 0;
-        for (int i = 0; i < d; i++)
-        {
-            diff += abs(c1.ax[i] - c2.ax[i]);
-        }
-        return diff == 1;
-    }
+	auto begin() const  { return ax.begin(); }
+	auto end() const { return ax.end(); }
+
+	bool operator<(const Coord<d>& other) {
+		for(size_t i = 0; i< ax.size(); i++)
+		{
+			if (ax[i] < other.ax[i])
+				return true;
+			if (ax[i] > other.ax[i])
+				return false;
+		}
+		return true;
+	}
 };
 
-using Crd2 = Coord<2>;
+//using Crd2 = Coord<2>;
+//using Crd3 = Coord<3>;
 
 
-template <int d, typename T>
-class Matrix 
-{
-    size_t n_[d] = { 0 };
-    vector<T> data_;
-    //------------------------------- Depth_detector --------------------------------//
-    template <int D, typename U> //start with D == d
-    struct Depth_detector
-    {
-        typedef std::initializer_list<typename Depth_detector<D - 1, U>::list_type > list_type;
-        
-        Depth_detector(list_type init_list, Matrix& mat)
-        {
-            mat.n_[d - D] = max(mat.n_[d - D], init_list.size());
+template<class T, size_t DIMENSIONS>
+class Matrix;
 
-            for (const auto& lst : init_list)
-            {
-                Depth_detector<D - 1, U> detect_lower_level_depth(lst, mat);
-            }
-        }
-    };
-
-    template <typename U>
-    struct Depth_detector<1, U>
-    {
-        typedef std::initializer_list<T> list_type;
-        Depth_detector(list_type init_list, Matrix& mat)
-        {
-            mat.n_[d - 1] = max(mat.n_[d - 1], init_list.size());
-        }
-    };
-
-    typedef typename Depth_detector<d, T>::list_type depth_detector_type;
-
-    //------------------------------- Initializer_list --------------------------------//
-    template <int D, typename U> //-- start with D == d and end with D == 1
-    struct Initializer_list
-    {
-        typedef std::initializer_list<typename Initializer_list<D - 1, U>::list_type > list_type;
-        Initializer_list(list_type list, Matrix& mat, vector<int>& progress)
-        {
-            int layer_num = 0;
-            for (const auto& layer : list)
-            {
-                progress[d - D] = layer_num;
-                Initializer_list<D - 1, U> pl(layer, mat, progress);
-                layer_num++;
-            }
-        }
-    };
-
-    template <typename U>
-    struct Initializer_list<1, U>
-    {
-        typedef std::initializer_list<T> list_type;
-        Initializer_list(list_type init_list, Matrix& mat, vector<int>& progress)
-        {
-            //-- get here to copy a "row" 
-            /*
-             * example:
-             * progress = [1,1,0], n_ = [2,2,10]
-             * so now we need to copy all 10 columns of the 2nd row (index 1)
-             * offset is 1*2*10+1*10
-             */
-
-            int offset = 0;
-            for (int layer = 0; layer < d-1; layer++) //-- layer depth
-            {
-                int layer_prog = progress[layer];
-                for (int j = layer + 1; j < d; j++)
-                {
-                    layer_prog *= mat.n_[j];
-                }
-                offset += layer_prog;
-            }
-
-            int col = 0;
-            for (const auto& r : init_list)
-            {
-                mat.data_[offset + col++] = r;
-            }
-        }
-    };
-    typedef typename Initializer_list<d, T>::list_type initializer_type;
-
-public:
-
-    // initializer list constructor
-    Matrix(initializer_type l) : data_(vector<T>())
-    {
-        Depth_detector<d, T> depth_det(l, *this); //-- detects dimensions
-        
-        int num_of_elements = 1;
-        for (int i = 0; i < d; i++)
-        {
-            num_of_elements *= n_[i];
-        }
-        data_ = vector<T>(num_of_elements, 0);
-
-        auto progress = vector<int>(d, 0);
-        Initializer_list<d, T> initialize(l, *this, progress); //-- copy values
-    }
-
-    T& getElem(Coord<d> crd)
-    {
-        for (int i = 0; i < d; i++)
-        {
-            if (crd.ax[i] > n_[i] - 1)
-            {
-                throw exception("index out of range");
-            }
-        }
-        int offset = 0;
-        for (int layer = 0; layer < d; layer++) //-- layer depth
-        {
-            int layer_prog = crd.ax[layer];
-            for (int j = layer + 1; j < d; j++)
-            {
-                layer_prog *= n_[j];
-            }
-            offset += layer_prog;
-        }
-        return data_[offset];
-    }
-    
-    template<typename F>
-    auto groupValues(F f) -> decltype(vector<pair<decltype(typename  result_of<F(T)>::type), vector<vector<Coord<d>>>>>())
-    //-- vector of pairs: each pair contains the group type and a vector of vectors of coords
-    {
-        auto unmapped_soil = vector<Coord<d>>();
-        vector<size_t> c1(d, 0);
-        Coord<d> currCoord(c1);
-
-        auto all_groups = vector<pair<decltype(typename  std::result_of<F(T)>::type), vector<vector<Coord<d>>>>>();
-        //auto q = f(getElem(currCoord));
-
-        while (c1[d-1] < n_[d-1])
-        {
-            unmapped_soil.push_back(Coord<d>(c1));
-
-            auto currInsert = 0;
-            c1[currInsert] += 1;
-            
-            while (c1[currInsert] > n_[currInsert] && currInsert < d-1)
-            {
-                c1[currInsert++] = 0;
-                c1[currInsert] += 1;
-            }
-        }
-
-        //while (unmapped_soil.size() > 0)
-        //{
-        //    vector<Coord<d>> new_grp;
-        //    auto begin_crd = unmapped_soil[0];
-        //    revealSurroundings(new_grp, begin_crd, f);
-        //
-        //    for (const auto& crd : new_grp)
-        //    {
-        //        //-- todo: skeptic
-        //        unmapped_soil.erase(std::remove(unmapped_soil.begin(), unmapped_soil.end(), crd), unmapped_soil.end());
-        //    }
-        //    //-- add group:
-        //    bool has_group = false;
-        //    iterator<> it = all_groups.begin();
-        //    for (; it != all_groups.end(); ++it)
-        //    {
-        //        if (*it.first == f(begin_crd))
-        //        {
-        //            *it.second.append(new_grp);
-        //        }
-        //        has_group = true;
-        //        break;
-        //    }
-        //    if (!has_group)
-        //    {
-        //        all_groups.append(make_pair(f(begin_crd), vector<vector<Coord<d>>>(new_grp)));
-        //    }
-        //}
-        return all_groups;
-    }
-    
-    //template <typename R>
-    //void revealSurroundings(vector<Coord<d>>& grp_crds_vec, Coord<d>& crd, Element_Mapper<R> f)
-    //{
-    //    grp_crds_vec.push_back(crd);
-    //
-    //    R grp_type = f(getElem(crd));
-    //    
-    //    for (int dim = 0; dim < d; ++dim)
-    //    {
-    //        if (crd.ax[dim] == 0) // only raise
-    //        {
-    //            crd.ax[dim] += 1;
-    //            if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
-    //            {
-    //                revealSurroundings(grp_crds_vec, crd, f);
-    //            }
-    //            crd.ax[dim] -= 1; //-- undo changes
-    //        }
-    //        else if (crd.ax[dim] == n_[dim] - 1) // only lower
-    //        {
-    //            crd.ax[dim] -= 1;
-    //            if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
-    //            {
-    //                revealSurroundings(grp_crds_vec, crd, f);
-    //            }
-    //            crd.ax[dim] += 1; //-- undo changes
-    //        }
-    //        else //both
-    //        {
-    //            crd.ax[dim] += 1;
-    //            if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
-    //            {
-    //                revealSurroundings(grp_crds_vec, crd, f);
-    //            }
-    //            crd.ax[dim] -= 2;
-    //            if ((std::find(grp_crds_vec.begin(), grp_crds_vec.end(), crd) != grp_crds_vec.end()) && (f(getElem(crd)) == grp_type))
-    //            {
-    //                revealSurroundings(grp_crds_vec, crd, f);
-    //            }
-    //            crd.ax[dim] += 1; //-- undo changes
-    //        }
-    //    }
-    //}
-
-
-//void Board::revealSurroundings(Coordinate c, char ship_char, Board &board, vector<Coordinate> &coords)
-//{
-//    if (board.charAt(c) == ship_char)
-//    {
-//        board.setSlot(c, Board::SEA);
-//        coords.push_back(c);
-//        int rows[2] = { c.row + 1, c.row - 1 };
-//        int cols[2] = { c.col + 1, c.col - 1 };
-//        int depths[2] = { c.depth + 1, c.depth - 1 };
-//        for (int i = 0; i < 2; i++)
-//        {
-//            if (board.isInBoard(rows[i], c.col, c.depth))
-//                revealSurroundings(rows[i], c.col, c.depth, ship_char, board, coords);
-//            if (board.isInBoard(c.row, cols[i], c.depth))
-//                revealSurroundings(c.row, cols[i], c.depth, ship_char, board, coords);
-//            if (board.isInBoard(c.row, c.col, depths[i]))
-//                revealSurroundings(c.row, c.col, depths[i], ship_char, board, coords);
-//        }
-//    }
-//}
+template<class T, size_t DIMENSIONS>
+struct MatrixCopier {
+	static void copy(T* dest, size_t dest_size, const size_t* dest_dimensions, const T* source, size_t source_size, const size_t* source_dimensions) {
+		size_t dest_size0 = dest_dimensions[0] ? dest_size / dest_dimensions[0] : 0;
+		size_t source_size0 = source_dimensions[0] ? source_size / source_dimensions[0] : 0;
+		for (size_t i = 0; i < source_dimensions[0]; ++i) {
+			MatrixCopier<T, DIMENSIONS - 1>::copy(dest + (i * dest_size0), dest_size0, dest_dimensions + 1, source + (i * source_size0), source_size0, source_dimensions + 1);
+		}
+	}
 };
 
 template<class T>
-using Matrix2d = Matrix<2, T>;
+struct MatrixCopier<T, 1> {
+	static void copy(T* dest, size_t dest_size, const size_t* dest_dimensions, const T* source, size_t source_size, const size_t* source_dimensions) {
+		for (size_t i = 0; i < source_size; ++i) {
+			dest[i] = source[i];
+		}
+	}
+};
 
+
+
+/* Matrix*/
+
+template<typename T, size_t DIMENSIONS>
+class Matrix {
+	constexpr static size_t NUM_DIMENSIONS = DIMENSIONS;
+	std::unique_ptr<T[]> _array = nullptr;
+	size_t _dimensions[DIMENSIONS] = {};
+	const size_t _size = 0;
+	friend class Matrix<T, DIMENSIONS + 1>;
+public:
+	size_t size() const { return _size; }
+	Matrix() {}
+
+	// DIMENSIONS == 1
+	// We want here a ctor with this signature:
+	//    Matrix(const std::initializer_list<T>& values) {
+	// but SFINAE is needed to block this ctor from being used by Matrix with DIMENSIONS > 1
+	// The SFINAE results with the exact signature we want, but only for cases DIMENSIONS == 1
+	template<typename G = T>
+	Matrix(const std::initializer_list<typename std::enable_if_t<DIMENSIONS == 1, G>>& values) {
+		const_cast<size_t&>(_size) = values.size();
+		_dimensions[0] = _size;
+		_array = std::make_unique<T[]>(_size);
+		size_t i = 0;
+		for (auto& val : values) {
+			_array[i++] = val;
+		}
+	}
+	// DIMENSIONS > 1
+	// We want here a ctor with this signature:
+	//    Matrix(const std::initializer_list<Matrix<T, DIMENSIONS-1>>& values) {
+	// although this ctor is not useful and won't be used by Matrix<T, 1> it will still be in class
+	// and thus would compile as part of Matrix<T, 1> resulting with a parameter of type:
+	//          const std::initializer_list< Matrix<T, 0> >& values
+	// having Matrix<T, 0> as a parameter - even for a function that is not in use, inside a class that is used
+	// would require the compiler to instantiate Matrix<T, 0> class which results with a warning
+	// the SFINAE below solves this warning.
+	// The SFINAE results with the exact signature we want, but only for cases DIMENSIONS > 1
+	template<typename G = T>
+	Matrix(const std::initializer_list<Matrix<typename std::enable_if_t<(DIMENSIONS > 1), G>, DIMENSIONS - 1>>& values) {
+		_dimensions[0] = values.size();
+		/* for each sub Matrix in of size DIMENSTION-1 */
+		for (auto& m : values) {
+			/* for every dimenstion that is small then DIMENSIONS find the maximum dimension of the sub Matrix */
+			for (size_t dim = 0; dim < DIMENSIONS - 1; ++dim) {
+				if (m._dimensions[dim] > _dimensions[dim + 1]) {
+					_dimensions[dim + 1] = m._dimensions[dim];
+				}
+			}
+		}
+		size_t size = 1;
+		for (size_t dim = 0; dim < DIMENSIONS; ++dim) {
+			size *= _dimensions[dim];
+		}
+
+		const_cast<size_t&>(_size) = size;
+		/* _array is now an array of type T with the total size of the Matrix (e.g. 5X3X4, then _array is one dimensional array of size 60
+		initialized to all zeros */
+		_array = std::make_unique<T[]>(_size); // "zero initialized" - T()
+		size_t i = 0;
+		size_t dest_size = _size / _dimensions[0];
+		for (auto& m : values) {
+			MatrixCopier<T, DIMENSIONS - 1>::copy(&(_array[i * dest_size]), dest_size, _dimensions + 1, m._array.get(), m._size, m._dimensions);
+			++i;
+		}
+	}
+
+
+
+	int coordToArrayIndex(Coord<DIMENSIONS> crd) const
+	{
+		for (int i = 0; i < DIMENSIONS; i++)
+		{
+			if (crd.ax[i] > _dimensions[i] - 1)
+			{
+				throw exception("index out of range");
+			}
+		}
+		int offset = 0;
+		for (int layer = 0; layer < DIMENSIONS; layer++) //-- layer depth
+		{
+			int layer_prog = crd.ax[layer];
+			for (int j = layer + 1; j < DIMENSIONS; j++)
+			{
+				layer_prog *= _dimensions[j];
+			}
+			offset += layer_prog;
+		}
+		return offset;
+	}
+
+	const T& getElem(Coord<DIMENSIONS> crd) const
+	{
+		return _array[coordToArrayIndex(crd)];
+	}
+
+	bool isInMatrix(Coord<DIMENSIONS> crd) const
+	{
+		for(size_t ax = 0; ax<crd.ax.size(); ax++)
+		{
+			if (crd.ax[ax] >= _dimensions[ax] or crd.ax[ax] < 0)
+				return false;
+		}
+		return true;
+	}
+
+
+	template<typename GroupingFunc>
+	using GroupingType = result_of_t<GroupingFunc(T)>;
+
+
+	template <typename GroupingFunc>
+	void revealSurroundings(GroupingFunc groupingFunc, Coord<DIMENSIONS> crd, GroupingType<GroupingFunc> crd_func_val, vector<pair<Coord<DIMENSIONS>, bool>>& coordinates_mapped, vector<Coord<DIMENSIONS>>& coords) const
+	{
+		if (groupingFunc(getElem(crd)) == crd_func_val)
+		{
+			coordinates_mapped[coordToArrayIndex(crd)].second = true;
+			coords.push_back(crd);
+			
+			for(size_t ax = 0 ; ax < crd.ax.size() ; ax++)
+			{
+				auto tmp_crd = Coord<DIMENSIONS>(crd);
+				tmp_crd.ax[ax] = tmp_crd.ax[ax]-1;
+				if (isInMatrix(tmp_crd) and !coordinates_mapped[coordToArrayIndex(tmp_crd)].second)
+					revealSurroundings<GroupingFunc>(groupingFunc, tmp_crd, crd_func_val, coordinates_mapped, coords);
+				tmp_crd.ax[ax] = tmp_crd.ax[ax] + 2;
+				if (isInMatrix(tmp_crd) and !coordinates_mapped[coordToArrayIndex(tmp_crd)].second)
+					revealSurroundings<GroupingFunc>(groupingFunc, tmp_crd, crd_func_val, coordinates_mapped, coords);
+				
+			}
+		}
+	}
+
+
+
+	template<typename GroupingFunc>
+	auto groupValues(GroupingFunc groupingFunc) const {
+		auto coordinates_mapped = vector<pair<Coord<DIMENSIONS>,bool>>();
+		auto coordinates_components = vector<vector<size_t>>(_size);
+		// initialize coordinates_components
+		int num_of_reaccurance = 1;
+		size_t sub_matrix_size = _size;
+		for (const size_t& dim : _dimensions)
+		{
+			sub_matrix_size /= dim;
+			int index = 0;
+			for (int i = 1; i <= num_of_reaccurance; i++)
+			{
+				for (size_t j = 0; j < dim; j++)
+				{
+					for (size_t k = 0 ; k <sub_matrix_size; k++)
+					{						
+						coordinates_components[index++].push_back(j);
+					}
+				}
+			}
+			num_of_reaccurance *= dim;			
+		}
+		//initialize coordinates_mapped
+		for(auto& crd : coordinates_components)
+		{
+			coordinates_mapped.emplace_back(Coord<DIMENSIONS>(crd), false);
+		}
+
+		std::map<GroupingType<GroupingFunc>, std::vector<vector<Coord<DIMENSIONS>>>> groups;
+
+		//find groups
+		for (auto& crd_obj : coordinates_mapped)
+		{
+			if (!crd_obj.second) //if have not been revealed yet
+			{
+				auto coords = vector<Coord<DIMENSIONS>>();
+				auto crd_val = getElem(crd_obj.first);
+				auto crd_func_val = groupingFunc(crd_val);
+				revealSurroundings<GroupingFunc>(groupingFunc, crd_obj.first, crd_func_val, coordinates_mapped, coords);
+				groups[crd_func_val].push_back(coords);
+			}
+		}
+		//sort groups
+		for(auto& groups_by_type : groups)
+		{
+			for (auto& group : groups_by_type.second)
+				sort(group.begin(), group.end());
+
+		}		
+		return groups;
+	}
+
+
+};
+
+// defining Matrix2d<T> as Matrix<T, 2>
+template<class T>
+using Matrix2d = Matrix<T, 2>;
+
+// defining Matrix3d<T> as Matrix<T, 3>
+template<class T>
+using Matrix3d = Matrix<T, 3>;
+
+// defining Matrix3d<T> as Matrix<T, 4>
+template<class T>
+using Matrix4d = Matrix<T, 4>;
+
+// defining IntVector as Matrix<int, 1>
+using IntVector = Matrix<int, 1>;
